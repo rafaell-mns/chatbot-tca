@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chatbot multiusuário</title>
+<style>
+  :root {
+    --bg: #eef2f6; --panel: #ffffff; --text: #1b2733; --muted: #5d6b7a;
+    --line: #d5dde6; --accent: #0f5c8c; --accent-text: #ffffff;
+    --user: #0f5c8c; --user-text: #ffffff; --bot: #e6edf4; --err: #a12626; --err-bg: #fbeaea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12181f; --panel: #1a222b; --text: #e6edf3; --muted: #92a1b0;
+      --line: #2c3945; --accent: #4aa3d8; --accent-text: #08202f;
+      --user: #2b6d99; --user-text: #ffffff; --bot: #243140; --err: #f0a3a3; --err-bg: #3a2024;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    display: flex; justify-content: center;
+  }
+  .app {
+    width: 100%; max-width: 760px; height: 100%;
+    display: flex; flex-direction: column; background: var(--panel);
+    border-left: 1px solid var(--line); border-right: 1px solid var(--line);
+  }
+  header {
+    padding: 14px 18px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  h1 { font-size: 1.05rem; margin: 0; font-weight: 600; }
+  .sessao { font-size: .78rem; color: var(--muted); margin-top: 2px; word-break: break-all; }
+  .sessao code { font-family: Consolas, "Courier New", monospace; color: var(--text); }
+  #nova {
+    flex-shrink: 0; background: transparent; color: var(--accent);
+    border: 1px solid var(--accent); border-radius: 6px; padding: 7px 12px;
+    font: inherit; font-size: .88rem; cursor: pointer;
+  }
+  #nova:hover { background: var(--bot); }
+  #mensagens {
+    flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .vazio { margin: auto; text-align: center; color: var(--muted); max-width: 32ch; line-height: 1.5; }
+  .msg {
+    max-width: 82%; padding: 10px 14px; border-radius: 14px; line-height: 1.5;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .msg.user { align-self: flex-end; background: var(--user); color: var(--user-text); border-bottom-right-radius: 4px; }
+  .msg.bot { align-self: flex-start; background: var(--bot); border-bottom-left-radius: 4px; }
+  .msg.erro { align-self: center; background: var(--err-bg); color: var(--err); font-size: .9rem; max-width: 92%; }
+  .msg.aviso { align-self: center; background: transparent; color: var(--muted); font-size: .85rem; border: 1px dashed var(--line); max-width: 92%; }
+  .digitando { color: var(--muted); font-style: italic; }
+  form { display: flex; gap: 10px; padding: 14px 18px; border-top: 1px solid var(--line); }
+  textarea {
+    flex: 1; resize: none; font: inherit; color: var(--text); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; max-height: 140px;
+  }
+  textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #enviar {
+    background: var(--accent); color: var(--accent-text); border: 0; border-radius: 8px;
+    padding: 0 20px; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  #enviar:disabled { opacity: .5; cursor: not-allowed; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>Chatbot multiusuário</h1>
+      <div class="sessao">Sessão: <code id="sessao">conectando...</code></div>
+    </div>
+    <button id="nova" type="button">Nova conversa</button>
+  </header>
+
+  <div id="mensagens" aria-live="polite">
+    <p class="vazio" id="vazio">Escreva uma pergunta para começar a conversa.</p>
+  </div>
+
+  <form id="form">
+    <textarea id="texto" rows="1" placeholder="Escreva sua pergunta" aria-label="Sua pergunta"></textarea>
+    <button id="enviar" type="submit">Enviar</button>
+  </form>
+</div>
+
+<script>
+// Endereço do backend. Para publicar, troque pela URL pública da EC2 (ex.: "http://IP-DA-EC2:8000").
+const API_URL = "http://127.0.0.1:8000";
+
+const $mensagens = document.getElementById("mensagens");
+const $texto = document.getElementById("texto");
+const $enviar = document.getElementById("enviar");
+const $sessao = document.getElementById("sessao");
+
+let sessionId = null;
+let ocupado = false;
+
+async function api(caminho, opcoes = {}) {
+  let resp;
+  try {
+    resp = await fetch(API_URL + caminho, {
+      headers: { "Content-Type": "application/json" },
+      ...opcoes,
+    });
+  } catch {
+    const e = new Error("Não foi possível conectar ao servidor. Confira se o backend está rodando.");
+    e.status = 0;
+    throw e;
+  }
+  if (!resp.ok) {
+    let detalhe = "";
+    try { detalhe = (await resp.json()).detail; } catch {}
+    const e = new Error(detalhe || `Erro ${resp.status}`);
+    e.status = resp.status;
+    throw e;
+  }
+  return resp.json();
+}
+
+function adicionar(tipo, texto) {
+  const vazio = document.getElementById("vazio");
+  if (vazio) vazio.remove();
+  const el = document.createElement("div");
+  el.className = "msg " + tipo;
+  el.textContent = texto; // textContent evita injeção de HTML
+  $mensagens.appendChild(el);
+  $mensagens.scrollTop = $mensagens.scrollHeight;
+  return el;
+}
+
+async function novaSessao() {
+  const dados = await api("/sessions", { method: "POST" });
+  sessionId = dados.session_id;
+  $sessao.textContent = sessionId;
+}
+
+async function enviar(texto, jaTentou = false) {
+  try {
+    if (!sessionId) await novaSessao();
+    const dados = await api("/chat", {
+      method: "POST",
+      body: JSON.stringify({ session_id: sessionId, message: texto }),
+    });
+    return dados.reply;
+  } catch (e) {
+    if (e.status === 404 && !jaTentou) {
+      // Sessão perdida (o servidor reiniciou): cria outra e tenta de novo.
+      await novaSessao();
+      adicionar("aviso", "A sessão anterior expirou. Criamos uma nova, e o histórico antigo foi perdido.");
+      return enviar(texto, true);
+    }
+    throw e;
+  }
+}
+
+document.getElementById("form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const texto = $texto.value.trim();
+  if (!texto || ocupado) return;
+
+  ocupado = true;
+  $enviar.disabled = true;
+  $texto.value = "";
+  $texto.style.height = "auto";
+  adicionar("user", texto);
+  const espera = adicionar("bot digitando", "Pensando...");
+
+  try {
+    const resposta = await enviar(texto);
+    espera.className = "msg bot";
+    espera.textContent = resposta;
+  } catch (e) {
+    espera.remove();
+    const msg = e.status === 502
+      ? "Não foi possível obter resposta do modelo. Tente enviar de novo."
+      : e.message;
+    adicionar("erro", msg);
+  } finally {
+    ocupado = false;
+    $enviar.disabled = false;
+    $texto.focus();
+    $mensagens.scrollTop = $mensagens.scrollHeight;
+  }
+});
+
+// Enter envia; Shift+Enter quebra a linha.
+$texto.addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter" && !ev.shiftKey) {
+    ev.preventDefault();
+    document.getElementById("form").requestSubmit();
+  }
+});
+
+// A caixa de texto cresce conforme o usuário escreve.
+$texto.addEventListener("input", () => {
+  $texto.style.height = "auto";
+  $texto.style.height = Math.min($texto.scrollHeight, 140) + "px";
+});
+
+document.getElementById("nova").addEventListener("click", async () => {
+  if (ocupado) return;
+  if (sessionId) { try { await api(`/sessions/${sessionId}`, { method: "DELETE" }); } catch {} }
+  $mensagens.innerHTML = '<p class="vazio" id="vazio">Escreva uma pergunta para começar a conversa.</p>';
+  sessionId = null;
+  $sessao.textContent = "conectando...";
+  try { await novaSessao(); } catch (e) { $sessao.textContent = "sem conexão"; adicionar("erro", e.message); }
+});
+
+// Ao abrir a página, cria a sessão (POST /sessions).
+novaSessao().catch((e) => { $sessao.textContent = "sem conexão"; adicionar("erro", e.message); });
+</script>
+</body>
+</html>
