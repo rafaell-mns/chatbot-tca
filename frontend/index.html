@@ -4,66 +4,85 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Chatbot multiusuário</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
 <style>
+  /* Tema roxo escuro, com a mão em silhueta inspirada nas pinturas rupestres da Serra da Capivara (Piauí). */
   :root {
-    --bg: #eef2f6; --panel: #ffffff; --text: #1b2733; --muted: #5d6b7a;
-    --line: #d5dde6; --accent: #0f5c8c; --accent-text: #ffffff;
-    --user: #0f5c8c; --user-text: #ffffff; --bot: #e6edf4; --err: #a12626; --err-bg: #fbeaea;
+    --rock: #15111d; --panel: #1e1829; --bot: #281f38; --line: #3f3457;
+    --text: #efeaf8; --muted: #a99ec0; --accent: #7a4fd0; --accent-ink: #ffffff;
+    --highlight: #b79cff; --err: #ff9494; --strata: rgba(220, 210, 255, .035); --shadow: rgba(122, 79, 208, .4);
+    --mao: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 72'%3E%3Cg fill='%237a4fd0'%3E%3Crect x='16' y='36' width='34' height='28' rx='13'/%3E%3Crect x='16' y='28' width='7' height='20' rx='3.5'/%3E%3Crect x='25' y='16' width='8' height='30' rx='4'/%3E%3Crect x='35' y='10' width='8' height='36' rx='4'/%3E%3Crect x='45' y='18' width='7' height='28' rx='3.5'/%3E%3Crect x='52' y='40' width='7' height='20' rx='3.5' transform='rotate(35 55 50)'/%3E%3C/g%3E%3C/svg%3E");
+    --display: "Archivo Black", Impact, "Arial Black", sans-serif;
   }
-  @media (prefers-color-scheme: dark) {
+  @media (prefers-color-scheme: light) {
     :root {
-      --bg: #12181f; --panel: #1a222b; --text: #e6edf3; --muted: #92a1b0;
-      --line: #2c3945; --accent: #4aa3d8; --accent-text: #08202f;
-      --user: #2b6d99; --user-text: #ffffff; --bot: #243140; --err: #f0a3a3; --err-bg: #3a2024;
+      --rock: #e7e1f3; --panel: #f6f2fc; --bot: #ebe5f8; --line: #c4b7e0;
+      --text: #241a38; --muted: #5f5278; --accent: #6a3cc2; --accent-ink: #ffffff;
+      --highlight: #7a52d1; --err: #b3261e; --strata: rgba(70, 40, 130, .06); --shadow: rgba(106, 60, 194, .3);
     }
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
   body {
-    background: var(--bg); color: var(--text);
-    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    color: var(--text);
+    font-family: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+    background: var(--rock) repeating-linear-gradient(0deg, transparent 0 54px, var(--strata) 54px 56px);
     display: flex; justify-content: center;
   }
   .app {
-    width: 100%; max-width: 760px; height: 100%;
-    display: flex; flex-direction: column; background: var(--panel);
-    border-left: 1px solid var(--line); border-right: 1px solid var(--line);
+    width: 100%; max-width: 760px; height: 100%; display: flex; flex-direction: column;
+    background: var(--panel); border-top: 6px solid var(--accent);
+  }
+  @media (min-width: 800px) {
+    .app { height: calc(100% - 40px); margin: 20px 0; border: 2px solid var(--line); border-top: 6px solid var(--accent); box-shadow: 10px 10px 0 var(--shadow); }
   }
   header {
-    padding: 14px 18px; border-bottom: 1px solid var(--line);
+    padding: 14px 18px; border-bottom: 2px solid var(--line);
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
   }
-  h1 { font-size: 1.05rem; margin: 0; font-weight: 600; }
-  .sessao { font-size: .78rem; color: var(--muted); margin-top: 2px; word-break: break-all; }
-  .sessao code { font-family: Consolas, "Courier New", monospace; color: var(--text); }
+  h1 {
+    font: 1rem/1 var(--display); letter-spacing: .07em; text-transform: uppercase; margin: 0;
+    display: flex; align-items: center; gap: 10px;
+  }
+  h1::before { content: ""; width: 24px; height: 27px; background: var(--mao) center / contain no-repeat; }
+  .sessao { font-size: .75rem; color: var(--muted); margin-top: 7px; word-break: break-all; }
+  .sessao code { font-family: Consolas, "Courier New", monospace; color: var(--highlight); border: 1px dashed var(--line); padding: 1px 6px; }
   #nova {
-    flex-shrink: 0; background: transparent; color: var(--accent);
-    border: 1px solid var(--accent); border-radius: 6px; padding: 7px 12px;
-    font: inherit; font-size: .88rem; cursor: pointer;
+    flex-shrink: 0; background: transparent; color: var(--text); border: 2px solid var(--text);
+    padding: 7px 12px; font: 700 .78rem/1 var(--display); letter-spacing: .06em; text-transform: uppercase; cursor: pointer;
   }
-  #nova:hover { background: var(--bot); }
+  #nova:hover { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
   #mensagens {
-    flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 10px;
+    flex: 1; overflow-y: auto; padding: 20px 18px; display: flex; flex-direction: column; gap: 12px;
+    scrollbar-color: var(--line) transparent;
   }
-  .vazio { margin: auto; text-align: center; color: var(--muted); max-width: 32ch; line-height: 1.5; }
-  .msg {
-    max-width: 82%; padding: 10px 14px; border-radius: 14px; line-height: 1.5;
-    white-space: pre-wrap; overflow-wrap: anywhere;
+  .vazio { margin: auto; text-align: center; color: var(--muted); max-width: 30ch; line-height: 1.5; }
+  .vazio::before { content: ""; display: block; width: 84px; height: 94px; margin: 0 auto 16px; background: var(--mao) center / contain no-repeat; }
+  .msg { max-width: 80%; padding: 11px 16px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .msg.user {
+    align-self: flex-end; background: var(--accent); color: var(--accent-ink);
+    clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
   }
-  .msg.user { align-self: flex-end; background: var(--user); color: var(--user-text); border-bottom-right-radius: 4px; }
-  .msg.bot { align-self: flex-start; background: var(--bot); border-bottom-left-radius: 4px; }
-  .msg.erro { align-self: center; background: var(--err-bg); color: var(--err); font-size: .9rem; max-width: 92%; }
-  .msg.aviso { align-self: center; background: transparent; color: var(--muted); font-size: .85rem; border: 1px dashed var(--line); max-width: 92%; }
-  .digitando { color: var(--muted); font-style: italic; }
-  form { display: flex; gap: 10px; padding: 14px 18px; border-top: 1px solid var(--line); }
+  .msg.bot {
+    align-self: flex-start; background: var(--bot); border-left: 4px solid var(--highlight);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  }
+  .msg.erro { align-self: center; color: var(--err); border: 2px dashed var(--err); font-size: .9rem; max-width: 92%; }
+  .msg.aviso { align-self: center; color: var(--muted); border: 1px dashed var(--line); font-size: .85rem; max-width: 92%; }
+  .digitando { color: var(--muted); animation: pulso 1.2s ease-in-out infinite; }
+  @keyframes pulso { 50% { opacity: .35; } }
+  @media (prefers-reduced-motion: reduce) { .digitando { animation: none; } }
+  form { display: flex; gap: 10px; padding: 14px 18px; border-top: 2px solid var(--line); }
   textarea {
-    flex: 1; resize: none; font: inherit; color: var(--text); background: var(--bg);
-    border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; max-height: 140px;
+    flex: 1; resize: none; font: inherit; color: var(--text); background: var(--rock);
+    border: 2px solid var(--line); border-radius: 0; padding: 10px 12px; max-height: 140px;
   }
-  textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  textarea:focus-visible, button:focus-visible { outline: 2px solid var(--highlight); outline-offset: 2px; }
   #enviar {
-    background: var(--accent); color: var(--accent-text); border: 0; border-radius: 8px;
-    padding: 0 20px; font: inherit; font-weight: 600; cursor: pointer;
+    background: var(--accent); color: var(--accent-ink); border: 0; padding: 0 22px; cursor: pointer;
+    font: .85rem/1 var(--display); letter-spacing: .07em; text-transform: uppercase;
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
   }
   #enviar:disabled { opacity: .5; cursor: not-allowed; }
 </style>
