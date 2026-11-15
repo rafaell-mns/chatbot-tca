@@ -108,8 +108,12 @@
 </div>
 
 <script>
-// O backend é acessado pelo mesmo domínio da interface.
-const API_URL = "https://chatbot-tca.onrender.com";
+// Dois backends disponíveis. Escolha pela URL: index.html?api=aws ou index.html?api=render (padrão: aws).
+const APIS = {
+  render: "https://chatbot-tca.onrender.com",
+  aws: "http://18.118.163.6:8000",
+};
+const API_URL = APIS[new URLSearchParams(location.search).get("api")] || APIS.aws;
 
 
 const $mensagens = document.getElementById("mensagens");
