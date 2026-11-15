@@ -261,9 +261,10 @@ O último número é a quantidade de usuários simultâneos. Para testar sem gas
 
 O backend está publicado em uma instância EC2 da AWS e acessível pela internet em http://18.118.163.6:8000.
 
-- O servidor roda com o Uvicorn, escutando em todos os endereços (`0.0.0.0`) na porta 8000, por exemplo com `uvicorn main:app --host 0.0.0.0 --port 8000` a partir da pasta `backend`.
+- O servidor roda com o Uvicorn do ambiente virtual do projeto, escutando em todos os endereços (`0.0.0.0`) na porta 8000: `uvicorn main:app --host 0.0.0.0 --port 8000`, a partir da pasta `backend`.
+- O processo é gerenciado como serviço do systemd (`chatbot.service`), habilitado para iniciar junto com a instância e com reinício automático (`Restart=always`). Ele continua rodando mesmo sem nenhum terminal aberto.
 - A porta 8000 está liberada no Security Group da instância.
-- A chave do OpenRouter e as demais variáveis ficam configuradas na própria instância, fora do repositório.
+- A chave do OpenRouter e as demais variáveis ficam em um arquivo `.env` na pasta `backend/` da instância, fora do repositório.
 - Mantenha **um único worker**, porque as sessões ficam na memória do processo.
 
 ### Render (alternativa)
@@ -275,7 +276,7 @@ O mesmo backend também está publicado como Web Service no Render, em https://c
 - O histórico fica em memória: ele é perdido quando o servidor reinicia ou entra em repouso. Nesse caso, a interface cria uma sessão nova e avisa o usuário.
 - O modelo `openrouter/free` escolhe modelos gratuitos, então a velocidade e o estilo das respostas podem variar entre uma mensagem e outra.
 - O endereço da AWS usa HTTP, sem criptografia. Por isso, a página servida pelo Render (que usa HTTPS) usa o próprio Render, e não a AWS, para não ser bloqueada pelo navegador.
-- O IP público da instância EC2 pode mudar se ela for parada e iniciada de novo, a menos que se use um IP elástico (fixo). Se isso acontecer, o endereço da AWS neste README e no `index.html` precisa ser atualizado.
+- A instância não usa IP elástico, então o IP público (`18.118.163.6`) muda se ela for parada e iniciada de novo (reiniciar não muda). Se isso acontecer, o endereço da AWS neste README e no `index.html` precisa ser atualizado.
 - No plano gratuito do Render, a primeira requisição depois de um período parado é lenta.
 
 ## Equipe
