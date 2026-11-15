@@ -21,12 +21,13 @@ Aplicação de chatbot em que vários usuários conversam ao mesmo tempo. Cada u
 
 | O quê | Endereço |
 |---|---|
-| Interface de chat | https://chatbot-tca.onrender.com/ |
-| Endpoint público da API | https://chatbot-tca.onrender.com |
-| Documentação interativa (Swagger) | https://chatbot-tca.onrender.com/docs |
+| Interface de chat (AWS) | http://18.118.163.6:8000/ |
+| Endpoint público da API (AWS) | http://18.118.163.6:8000 |
+| Documentação interativa (Swagger) | http://18.118.163.6:8000/docs |
+| Alternativa: interface e API no Render | https://chatbot-tca.onrender.com/ |
 | Código-fonte | https://github.com/rafaell-mns/chatbot-tca |
 
-> No plano gratuito do Render, o serviço entra em repouso depois de um tempo sem acessos. A primeira requisição depois disso pode levar mais de meio minuto.
+> A publicação principal está em uma instância EC2 da AWS. O Render fica como alternativa: no plano gratuito dele, o serviço entra em repouso depois de um tempo sem acessos, e a primeira requisição depois disso pode levar mais de meio minuto.
 
 ### Teste rápido pela API
 
@@ -34,15 +35,15 @@ Em três comandos (no Prompt de Comando, Linux ou Mac):
 
 ```bash
 # 1. Criar uma sessão e copiar o session_id da resposta
-curl -X POST https://chatbot-tca.onrender.com/sessions
+curl -X POST http://18.118.163.6:8000/sessions
 
 # 2. Fazer uma pergunta (troque COLE-O-ID-AQUI pelo session_id)
-curl -X POST https://chatbot-tca.onrender.com/chat \
+curl -X POST http://18.118.163.6:8000/chat \
   -H "Content-Type: application/json" \
   -d '{"session_id": "COLE-O-ID-AQUI", "message": "Olá!"}'
 
 # 3. Ver o histórico da sessão
-curl https://chatbot-tca.onrender.com/sessions/COLE-O-ID-AQUI/history
+curl http://18.118.163.6:8000/sessions/COLE-O-ID-AQUI/history
 ```
 
 ## Como funciona
@@ -85,7 +86,7 @@ chatbot-tca/
 │   ├── test_concorrencia.py  # teste com vários usuários simultâneos
 │   └── requirements.txt
 ├── frontend/
-│   └── index.html            # interface de chat
+│   └── index.html            # interface de chat (escolhe o backend: AWS ou Render)
 ├── .env.example
 └── README.md
 ```
@@ -133,11 +134,18 @@ O servidor sobe em `http://127.0.0.1:8000`, e a documentação interativa fica e
 
 ### 4. Abrir a interface
 
-Com o backend rodando, abra `http://127.0.0.1:8000/` no navegador. A interface (`frontend/index.html`) usa o mesmo endereço da API.
+Com o backend rodando, abra `http://127.0.0.1:8000/` no navegador. O próprio backend entrega a interface (`frontend/index.html`), e a página usa o mesmo endereço da API.
+
+A interface também pode ser aberta direto do computador (dois cliques no arquivo). Nesse caso, ela usa o backend da AWS por padrão. Para escolher o backend, acrescente um parâmetro ao endereço:
+
+| Endereço | Backend usado |
+|---|---|
+| `index.html?api=aws` | AWS (http://18.118.163.6:8000) |
+| `index.html?api=render` | Render (https://chatbot-tca.onrender.com) |
 
 ## Documentação da API
 
-URL base: `https://chatbot-tca.onrender.com`
+URL base: `http://18.118.163.6:8000` (AWS). A mesma API também responde no Render, em `https://chatbot-tca.onrender.com`.
 
 | Método | Rota | Descrição |
 |---|---|---|
@@ -152,7 +160,7 @@ URL base: `https://chatbot-tca.onrender.com`
 Cria uma sessão e devolve o ID único.
 
 ```bash
-curl -X POST https://chatbot-tca.onrender.com/sessions
+curl -X POST http://18.118.163.6:8000/sessions
 ```
 
 Resposta (200):
@@ -172,7 +180,7 @@ Corpo da requisição:
 ```
 
 ```bash
-curl -X POST https://chatbot-tca.onrender.com/chat \
+curl -X POST http://18.118.163.6:8000/chat \
   -H "Content-Type: application/json" \
   -d '{"session_id": "COLE-O-ID-AQUI", "message": "Olá!"}'
 ```
@@ -188,7 +196,7 @@ Resposta (200):
 Devolve o histórico da sessão.
 
 ```bash
-curl https://chatbot-tca.onrender.com/sessions/COLE-O-ID-AQUI/history
+curl http://18.118.163.6:8000/sessions/COLE-O-ID-AQUI/history
 ```
 
 Resposta (200):
@@ -207,7 +215,7 @@ Resposta (200):
 Apaga a sessão e o histórico dela.
 
 ```bash
-curl -X DELETE https://chatbot-tca.onrender.com/sessions/COLE-O-ID-AQUI
+curl -X DELETE http://18.118.163.6:8000/sessions/COLE-O-ID-AQUI
 ```
 
 Resposta (200):
@@ -249,14 +257,25 @@ O último número é a quantidade de usuários simultâneos. Para testar sem gas
 
 ## Publicação
 
-O backend está publicado como Web Service no Render, em https://chatbot-tca.onrender.com. A chave do OpenRouter e as demais variáveis (`OPENROUTER_API_KEY`, `LLM_MODELS`) ficam configuradas no painel do Render, e não no repositório.
+### AWS EC2 (principal)
 
-Mantenha **um único worker**, porque as sessões ficam na memória do processo.
+O backend está publicado em uma instância EC2 da AWS e acessível pela internet em http://18.118.163.6:8000.
+
+- O servidor roda com o Uvicorn, escutando em todos os endereços (`0.0.0.0`) na porta 8000, por exemplo com `uvicorn main:app --host 0.0.0.0 --port 8000` a partir da pasta `backend`.
+- A porta 8000 está liberada no Security Group da instância.
+- A chave do OpenRouter e as demais variáveis ficam configuradas na própria instância, fora do repositório.
+- Mantenha **um único worker**, porque as sessões ficam na memória do processo.
+
+### Render (alternativa)
+
+O mesmo backend também está publicado como Web Service no Render, em https://chatbot-tca.onrender.com. As variáveis (`OPENROUTER_API_KEY`, `LLM_MODELS`) ficam configuradas no painel do Render, e não no repositório.
 
 ## Limitações conhecidas
 
 - O histórico fica em memória: ele é perdido quando o servidor reinicia ou entra em repouso. Nesse caso, a interface cria uma sessão nova e avisa o usuário.
 - O modelo `openrouter/free` escolhe modelos gratuitos, então a velocidade e o estilo das respostas podem variar entre uma mensagem e outra.
+- O endereço da AWS usa HTTP, sem criptografia. Por isso, a página servida pelo Render (que usa HTTPS) usa o próprio Render, e não a AWS, para não ser bloqueada pelo navegador.
+- O IP público da instância EC2 pode mudar se ela for parada e iniciada de novo, a menos que se use um IP elástico (fixo). Se isso acontecer, o endereço da AWS neste README e no `index.html` precisa ser atualizado.
 - No plano gratuito do Render, a primeira requisição depois de um período parado é lenta.
 
 ## Equipe

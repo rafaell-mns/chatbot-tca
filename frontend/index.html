@@ -108,13 +108,15 @@
 </div>
 
 <script>
-// Dois backends disponíveis. Escolha pela URL: index.html?api=aws ou index.html?api=render (padrão: aws).
+// Dois backends disponíveis: AWS e Render.
+// Servida por um backend, a página usa o mesmo endereço de onde foi aberta (evita o bloqueio de conteúdo misto http/https).
+// Aberta do computador (file://), usa a AWS. Para escolher: index.html?api=aws ou index.html?api=render.
 const APIS = {
   render: "https://chatbot-tca.onrender.com",
   aws: "http://18.118.163.6:8000",
 };
-const API_URL = APIS[new URLSearchParams(location.search).get("api")] || APIS.aws;
-
+const escolhido = new URLSearchParams(location.search).get("api");
+const API_URL = APIS[escolhido] || (location.protocol === "file:" ? APIS.aws : "");
 
 const $mensagens = document.getElementById("mensagens");
 const $texto = document.getElementById("texto");
